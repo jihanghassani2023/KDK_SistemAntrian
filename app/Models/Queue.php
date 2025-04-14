@@ -9,13 +9,30 @@ class Queue extends Model
     protected $fillable = [
         'current_queue_number',
         'served_queue_number',
-        'status'
+        'status',
+        'date'
     ];
 
-    // Method to get the next queue number
-    public function getNextQueueNumber()
+    public function user_queues()
     {
-        $lastQueue = self::orderBy('current_queue_number', 'desc')->first();
-        return $lastQueue ? $lastQueue->current_queue_number + 1 : 1;
+        return $this->hasMany(UserQueue::class);
+    }
+
+    // Metode untuk mengecek apakah user sudah punya antrian
+    public function hasUserQueue($userId)
+    {
+        return $this->user_queues()
+            ->where('user_id', $userId)
+            ->exists();
+    }
+
+    // Metode untuk mendapatkan nomor antrian user
+    public function getUserQueueNumber($userId)
+    {
+        $userQueue = $this->user_queues()
+            ->where('user_id', $userId)
+            ->first();
+
+        return $userQueue ? $userQueue->queue_number : null;
     }
 }

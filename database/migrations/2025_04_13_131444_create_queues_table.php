@@ -13,6 +13,7 @@ class CreateQueuesTable extends Migration
             $table->integer('current_queue_number')->default(0);
             $table->integer('served_queue_number')->default(0);
             $table->enum('status', ['active', 'completed'])->default('active');
+            $table->date('date')->nullable();
             $table->timestamps();
         });
     }

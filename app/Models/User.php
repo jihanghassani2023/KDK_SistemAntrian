@@ -23,4 +23,12 @@ class User extends Authenticatable
     {
         $this->attributes['password'] = Hash::make($value);
     }
+
+    /**
+     * Relasi dengan model Queue
+     */
+    public function queues()
+    {
+        return $this->hasMany(Queue::class); // User memiliki banyak Queue
+    }
 }
