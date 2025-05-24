@@ -15,12 +15,11 @@ class UserController extends Controller
         $user = Auth::user();
         $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
-        // Cek apakah user sudah punya antrian hari ini
         $userQueue = UserQueue::where('user_id', $user->id)
                               ->where('queue_date', today())
                               ->first();
 
-        // Menentukan nomor yang sedang dilayani dan terakhir selesai
+
         $currentlyServing = 0;
         $lastCompleted = 0;
 
@@ -29,19 +28,17 @@ class UserController extends Controller
             $total = $todayQueue->current_queue_number;
 
             if ($served > 0 && $served <= $total) {
-                // Sedang melayani nomor positif
+
                 $currentlyServing = $served;
                 $lastCompleted = max(0, $served - 1);
             } else if ($served < 0) {
-                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
                 $currentlyServing = 0;
                 $lastCompleted = abs($served);
             } else if ($served > $total && $total > 0) {
-                // Semua sudah selesai - tapi hanya jika memang ada antrian sebelumnya
+
                 $currentlyServing = 0;
                 $lastCompleted = $total;
             } else {
-                // served = 0, belum ada yang dipanggil
                 $currentlyServing = 0;
                 $lastCompleted = 0;
             }
@@ -61,17 +58,17 @@ class UserController extends Controller
         $user = Auth::user();
         $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
-        // Cek apakah user sudah mengambil antrian hari ini
+
         $userQueue = UserQueue::where('user_id', $user->id)
                               ->where('queue_date', today())
                               ->first();
 
         if ($userQueue) {
-            // Jika sudah ada, redirect ke dashboard dengan data antrian
+
             return redirect()->route('user.dashboard');
         }
 
-        // Menentukan nomor yang sedang dilayani dan terakhir selesai
+
         $currentlyServing = 0;
         $lastCompleted = 0;
 
@@ -80,19 +77,16 @@ class UserController extends Controller
             $total = $todayQueue->current_queue_number;
 
             if ($served > 0 && $served <= $total) {
-                // Sedang melayani nomor positif
+
                 $currentlyServing = $served;
                 $lastCompleted = max(0, $served - 1);
             } else if ($served < 0) {
-                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
                 $currentlyServing = 0;
                 $lastCompleted = abs($served);
             } else if ($served > $total && $total > 0) {
-                // Semua sudah selesai - tapi hanya jika memang ada antrian sebelumnya
                 $currentlyServing = 0;
                 $lastCompleted = $total;
             } else {
-                // served = 0, belum ada yang dipanggil
                 $currentlyServing = 0;
                 $lastCompleted = 0;
             }
@@ -111,8 +105,6 @@ class UserController extends Controller
 {
     try {
         $user = Auth::user();
-
-        // Cek apakah user sudah mengambil antrian hari ini
         $existingUserQueue = UserQueue::where('user_id', $user->id)
                                       ->where('queue_date', today())
                                       ->first();
@@ -121,12 +113,9 @@ class UserController extends Controller
             return redirect()->route('user.dashboard')
                 ->with('info', 'Anda sudah mengambil nomor antrian hari ini');
         }
-
-        // Cek apakah ada antrian aktif hari ini
         $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
         if (!$todayQueue) {
-            // Buat antrian baru jika belum ada
             $todayQueue = Queue::create([
                 'current_queue_number' => 0,
                 'served_queue_number' => 0,
@@ -134,16 +123,10 @@ class UserController extends Controller
                 'date' => today()
             ]);
         }
-
-        // **HAPUS RESET LOGIC - Biarkan served_queue_number apa adanya**
-        // Sistem admin yang akan menangani logic pemanggilan antrian
-
-        // Tambah nomor antrian
         $queueNumber = $todayQueue->current_queue_number + 1;
         $todayQueue->current_queue_number = $queueNumber;
         $todayQueue->save();
 
-        // Simpan antrian user ke database
         UserQueue::create([
             'queue_id' => $todayQueue->id,
             'user_id' => $user->id,
@@ -178,24 +161,19 @@ class UserController extends Controller
             $served = $todayQueue->served_queue_number;
             $total = $todayQueue->current_queue_number;
 
-            // Menentukan nomor yang sedang dilayani dan terakhir selesai
             $currentlyServing = 0;
             $lastCompleted = 0;
 
             if ($served > 0 && $served <= $total) {
-                // Sedang melayani nomor positif
                 $currentlyServing = $served;
                 $lastCompleted = max(0, $served - 1);
             } else if ($served < 0) {
-                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
                 $currentlyServing = 0;
                 $lastCompleted = abs($served);
             } else if ($served > $total && $total > 0) {
-                // Semua sudah selesai - tapi hanya jika memang ada antrian sebelumnya
                 $currentlyServing = 0;
                 $lastCompleted = $total;
             } else {
-                // served = 0, belum ada yang dipanggil
                 $currentlyServing = 0;
                 $lastCompleted = 0;
             }

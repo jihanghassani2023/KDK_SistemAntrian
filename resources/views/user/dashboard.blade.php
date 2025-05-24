@@ -125,15 +125,10 @@
         @endif
 
     @else
-        {{-- Jika user sudah memiliki nomor antrian atau baru saja mengambil --}}
         @php
             $currentUserNumber = session('queue_number') ?: ($user_queue ? $user_queue->queue_number : 0);
-
-            // **PERBAIKAN UTAMA: Hanya anggap selesai jika user benar-benar punya record antrian DAN sudah selesai**
-            // Jangan anggap selesai jika user baru saja mengambil antrian (session) atau jika belum ada record UserQueue
             $isCompleted = false;
             if ($user_queue && $currentUserNumber > 0) {
-                // Hanya cek completed jika user benar-benar ada record di UserQueue
                 $isCompleted = $currentUserNumber <= $last_completed;
             }
         @endphp
@@ -280,30 +275,27 @@
         fetch('{{ route("user.served-number") }}')
             .then(response => response.json())
             .then(data => {
-                // Update the displayed served number
+
                 const servedNumberElement = document.getElementById('served-number');
                 if (servedNumberElement) {
                     servedNumberElement.textContent = data.currently_serving > 0 ? data.currently_serving : '-';
                 }
 
-                // Update queue status
+
                 const queueStatusElement = document.getElementById('queue-status');
                 const userNumber = {{ session('queue_number') ?: ($user_queue ? $user_queue->queue_number : 0) }};
                 const hasUserQueue = {{ $user_queue ? 'true' : 'false' }};
 
                 if (queueStatusElement && userNumber > 0) {
-                    // **PERBAIKAN: Hanya anggap selesai jika user benar-benar punya record antrian DAN sudah selesai**
                     if (hasUserQueue && userNumber <= data.last_completed) {
                         queueStatusElement.textContent = 'Selesai';
                         queueStatusElement.className = 'badge bg-success badge-lg';
 
-                        // Update nomor antrian user jadi "-"
                         const userQueueElement = document.querySelector('.user-number');
                         if (userQueueElement) {
                             userQueueElement.textContent = '-';
                         }
 
-                        // Update pesan
                         const messageElement = userQueueElement?.closest('.queue-card').querySelector('p:last-of-type');
                         if (messageElement) {
                             messageElement.textContent = 'Antrian Anda sudah selesai dilayani. Terima kasih!';
@@ -317,7 +309,6 @@
                     }
                 }
 
-                // Update progress bar
                 const progressBar = document.getElementById('queue-progress');
                 if (progressBar && userNumber > 0) {
                     const isCompleted = hasUserQueue && userNumber <= data.last_completed;
@@ -331,7 +322,7 @@
                     }
                 }
 
-                // Update estimated wait time
+
                 const waitTimeElement = document.getElementById('wait-time');
                 if (waitTimeElement) {
                     const isCompleted = hasUserQueue && userNumber <= data.last_completed;
@@ -340,7 +331,7 @@
                     } else if (userNumber == data.currently_serving) {
                         waitTimeElement.parentElement.textContent = 'Nomor Anda sedang dilayani';
                     } else if (userNumber > 0) {
-                        // Estimate 5 minutes per person
+
                         let peopleAhead = 0;
                         if (data.currently_serving > 0) {
                             peopleAhead = userNumber - data.currently_serving;
@@ -360,7 +351,6 @@
                     }
                 }
 
-                // Update next number information
                 const nextNumberElement = document.getElementById('next-number');
                 if (nextNumberElement) {
                     const isCompleted = hasUserQueue && userNumber <= data.last_completed;
@@ -375,7 +365,6 @@
                     }
                 }
 
-                // Update remaining before you
                 const remainingBeforeElement = document.getElementById('remaining-before');
                 if (remainingBeforeElement) {
                     const isCompleted = hasUserQueue && userNumber <= data.last_completed;
@@ -391,9 +380,8 @@
             .catch(error => console.error('Error fetching served number:', error));
     }
 
-    // Update every 3 seconds only if user has queue
     @if($user_queue || session('queue_number'))
-        updateQueueStatus(); // Run immediately
+        updateQueueStatus();
         setInterval(updateQueueStatus, 3000);
     @endif
 </script>

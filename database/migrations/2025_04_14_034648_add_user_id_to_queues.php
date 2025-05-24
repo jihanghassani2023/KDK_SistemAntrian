@@ -11,9 +11,8 @@ class AddUserIdToQueues extends Migration
      */
     public function up(): void
     {
-        // Menambahkan kolom user_id pada tabel queues
         Schema::table('queues', function (Blueprint $table) {
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null'); // Menambahkan kolom user_id
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
         });
     }
 

@@ -16,7 +16,6 @@ class CreateUserQueuesTable extends Migration
             $table->date('queue_date');
             $table->timestamps();
 
-            // Pastikan setiap user hanya punya 1 nomor antrian per hari
             $table->unique(['user_id', 'queue_date']);
         });
     }

@@ -18,7 +18,6 @@ class Queue extends Model
         return $this->hasMany(UserQueue::class);
     }
 
-    // Metode untuk mengecek apakah user sudah punya antrian
     public function hasUserQueue($userId)
     {
         return $this->user_queues()
@@ -26,7 +25,6 @@ class Queue extends Model
             ->exists();
     }
 
-    // Metode untuk mendapatkan nomor antrian user
     public function getUserQueueNumber($userId)
     {
         $userQueue = $this->user_queues()

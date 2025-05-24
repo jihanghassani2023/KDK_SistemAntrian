@@ -15,8 +15,6 @@ class AdminController extends Controller
 
         $served = $queue ? $queue->served_queue_number : 0;
         $total = $queue ? $queue->current_queue_number : 0;
-
-        // Hitung currently serving dan last completed
         $currentlyServing = 0;
         $lastCompleted = 0;
 
@@ -27,11 +25,9 @@ class AdminController extends Controller
             $currentlyServing = 0;
             $lastCompleted = abs($served);
         } else if ($served > $total && $total > 0) {
-            // Semua selesai - tapi hanya jika memang ada antrian sebelumnya
             $currentlyServing = 0;
             $lastCompleted = $total;
         } else if ($served == 0 && $total > 0) {
-            // Ada antrian baru tapi belum dipanggil
             $currentlyServing = 0;
             $lastCompleted = 0;
         }
@@ -52,18 +48,17 @@ class AdminController extends Controller
             $currentStep = $this->getCurrentStep($queue);
 
             if ($currentStep['action'] == 'call_first') {
-                // Panggil nomor pertama (bisa nomor 1 atau nomor setelah yang sudah selesai)
+
                 $nextNumber = $this->getNextQueueNumber($queue);
                 $queue->served_queue_number = $nextNumber;
             } else if ($currentStep['action'] == 'finish_current') {
-                // Selesaikan nomor yang sedang dilayani
+
                 $queue->served_queue_number = -$queue->served_queue_number;
             } else if ($currentStep['action'] == 'call_next') {
-                // Panggil nomor berikutnya
+
                 $nextNumber = abs($queue->served_queue_number) + 1;
                 $queue->served_queue_number = $nextNumber;
             } else if ($currentStep['action'] == 'finish_last') {
-                // Selesaikan nomor terakhir
                 $queue->served_queue_number = -$queue->current_queue_number;
             }
 
@@ -79,27 +74,25 @@ class AdminController extends Controller
         $total = $queue->current_queue_number;
 
         if ($served == 0 && $total > 0) {
-            // Ada antrian yang belum dipanggil sama sekali
             return ['action' => 'call_first', 'button' => 'Panggil'];
         } else if ($served > 0 && $served <= $total) {
-            // Sedang melayani nomor positif
             if ($served == $total) {
                 return ['action' => 'finish_last', 'button' => 'Selesai'];
             } else {
                 return ['action' => 'finish_current', 'button' => 'Selesai'];
             }
         } else if ($served < 0) {
-            // Nilai negatif = nomor abs($served) sudah selesai
+
             $lastCompleted = abs($served);
             if ($lastCompleted < $total) {
-                // Masih ada antrian berikutnya
+
                 return ['action' => 'call_next', 'button' => 'Panggil'];
             } else {
-                // Semua sudah selesai
+
                 return ['action' => 'none', 'button' => 'Semua Selesai'];
             }
         } else {
-            // Tidak ada antrian
+
             return ['action' => 'none', 'button' => 'Tidak Ada Antrian'];
         }
     }
@@ -110,19 +103,18 @@ class AdminController extends Controller
         $total = $queue->current_queue_number;
 
         if ($served == 0) {
-            // Cari nomor pertama yang belum dipanggil
             if ($total > 0) {
-                return 1; // Mulai dari 1
+                return 1;
             }
         } else if ($served < 0) {
-            // Panggil nomor setelah yang sudah selesai
+
             $lastCompleted = abs($served);
             if ($lastCompleted < $total) {
                 return $lastCompleted + 1;
             }
         }
 
-        return 1; // Default
+        return 1;
     }
 
     public function resetQueue()
@@ -134,7 +126,6 @@ class AdminController extends Controller
             $queue->current_queue_number = 0;
             $queue->save();
 
-            // Set flag reset di cache untuk 10 menit
             Cache::put('queue_reset_flag', time(), 600);
         }
 
@@ -165,20 +156,16 @@ class AdminController extends Controller
             $served = $queue->served_queue_number;
             $total = $queue->current_queue_number;
 
-            // Menentukan nomor yang sedang dilayani
             $currentlyServing = 0;
             $lastCompleted = 0;
 
             if ($served > 0 && $served <= $total) {
-                // Nilai positif = sedang dilayani
                 $currentlyServing = $served;
                 $lastCompleted = $served - 1;
             } else if ($served < 0) {
-                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
                 $currentlyServing = 0;
                 $lastCompleted = abs($served);
             } else if ($served == 0 && $total > 0) {
-                // Ada antrian baru tapi belum dipanggil
                 $currentlyServing = 0;
                 $lastCompleted = 0;
             }

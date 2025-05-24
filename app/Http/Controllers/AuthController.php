@@ -9,19 +9,16 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
-    // Show Login Form
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    // Show Registration Form
     public function showRegistrationForm()
     {
         return view('auth.register');
     }
 
-    // Handle Login
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -40,7 +37,6 @@ class AuthController extends Controller
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
 
-            // Redirect based on user role
             if ($user->role === 'admin') {
                 return redirect()->route('admin.dashboard');
             } else {
@@ -53,7 +49,6 @@ class AuthController extends Controller
             ->withInput();
     }
 
-    // Handle Registration
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -68,21 +63,19 @@ class AuthController extends Controller
                 ->withInput();
         }
 
-        // Create user
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => $request->password,
-            'role' => 'user' // Default role is user
+            'role' => 'user'
         ]);
 
-        // Auto login after registration
+
         Auth::login($user);
 
         return redirect()->route('user.dashboard');
     }
 
-    // Logout
     public function logout()
     {
         Auth::logout();

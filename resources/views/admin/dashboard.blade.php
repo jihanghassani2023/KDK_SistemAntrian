@@ -136,7 +136,6 @@
                                 <h5>Menunggu</h5>
                                 <div class="h1" id="waiting-number">
                                     @php
-                                        // Hitung yang menunggu
                                         $currentlyServing = ($current_queue > 0 && $current_queue <= $total_queue) ? $current_queue : 0;
                                         $nextWaiting = ($currentlyServing > 0 && $currentlyServing < $total_queue) ? $currentlyServing + 1 : 0;
                                     @endphp
@@ -321,7 +320,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Navigation functionality
         document.getElementById('nav-operator').addEventListener('click', function(e) {
             e.preventDefault();
             document.getElementById('operator-panel').style.display = 'block';
@@ -338,32 +336,23 @@
             document.getElementById('nav-operator').classList.remove('active');
         });
 
-        // Set default active tab (Admin)
         document.getElementById('nav-admin').click();
 
-        // Function to fetch queue data and update UI
         function fetchQueueData() {
             fetch('{{ route("admin.queue-data") }}')
                 .then(response => response.json())
                 .then(data => {
-                    // Update operator panel
-                    // Nomor yang sedang dilayani
                     document.getElementById('serving-number').textContent =
                         data.currently_serving > 0 ? data.currently_serving : '-';
 
-                    // Nomor terakhir yang selesai
                     document.getElementById('completed-number').textContent =
                         data.last_completed > 0 ? data.last_completed : '-';
-
-                    // Update informasi total
                     document.getElementById('total-number').textContent = data.total_number;
                     document.getElementById('total-completed').textContent = data.last_completed;
-
-                    // Update admin panel
                     document.getElementById('current-serving').textContent =
                         data.currently_serving > 0 ? data.currently_serving : '-';
 
-                    // Update queue status text
+
                     if (data.currently_serving > 0) {
                         document.getElementById('queue-status-text').textContent =
                             `Antrian nomor ${data.currently_serving} sedang dilayani`;
@@ -382,7 +371,7 @@
                         document.getElementById('queue-status-text').textContent = 'Tidak ada antrian';
                     }
 
-                    // Update next queue info
+
                     if (data.served_number === 0 && data.total_number > 0) {
                         document.getElementById('next-queue-info').textContent = 'Antrian pertama: 1';
                     } else if (data.served_number < 0) {
@@ -399,12 +388,12 @@
                         document.getElementById('next-queue-info').textContent = 'Tidak ada antrian berikutnya';
                     }
 
-                    // Update button
+
                     const btnComplete = document.getElementById('btn-complete');
                     btnComplete.textContent = data.button_text;
                     btnComplete.disabled = !data.button_enabled;
 
-                    // Update waiting list
+
                     const waitingList = document.getElementById('waiting-list');
                     if (data.waiting_number <= 0) {
                         waitingList.innerHTML = '<p class="text-muted">Tidak ada antrian yang menunggu</p>';
@@ -417,7 +406,7 @@
                         waitingList.innerHTML = html;
                     }
 
-                    // Update completed queue list
+
                     const tbody = document.getElementById('completed-queue-list');
                     if (data.last_completed === 0) {
                         tbody.innerHTML = '<tr><td colspan="2" class="text-center">Belum ada antrian yang selesai</td></tr>';
@@ -439,15 +428,15 @@
                 .catch(error => console.error('Error fetching queue data:', error));
         }
 
-        // Initialize the current date
+
         document.getElementById('current-date').textContent = new Date().toLocaleDateString('id-ID', {
             day: '2-digit',
             month: 'long',
             year: 'numeric'
         });
 
-        // Fetch queue data every 5 seconds
-        fetchQueueData(); // Run immediately
+
+        fetchQueueData();
         setInterval(fetchQueueData, 5000);
     </script>
 </body>

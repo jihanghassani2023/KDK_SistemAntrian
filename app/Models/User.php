@@ -18,17 +18,13 @@ class User extends Authenticatable
         'password',
     ];
 
-    // Mutator for password hashing
     public function setPasswordAttribute($value)
     {
         $this->attributes['password'] = Hash::make($value);
     }
 
-    /**
-     * Relasi dengan model Queue
-     */
     public function queues()
     {
-        return $this->hasMany(Queue::class); // User memiliki banyak Queue
+        return $this->hasMany(Queue::class);
     }
 }
