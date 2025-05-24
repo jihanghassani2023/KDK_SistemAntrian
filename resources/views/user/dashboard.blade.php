@@ -128,8 +128,14 @@
         {{-- Jika user sudah memiliki nomor antrian atau baru saja mengambil --}}
         @php
             $currentUserNumber = session('queue_number') ?: ($user_queue ? $user_queue->queue_number : 0);
-            // Hanya anggap selesai jika user benar-benar punya record antrian dan sudah selesai
-            $isCompleted = $user_queue && $currentUserNumber > 0 && $currentUserNumber <= $last_completed;
+
+            // **PERBAIKAN UTAMA: Hanya anggap selesai jika user benar-benar punya record antrian DAN sudah selesai**
+            // Jangan anggap selesai jika user baru saja mengambil antrian (session) atau jika belum ada record UserQueue
+            $isCompleted = false;
+            if ($user_queue && $currentUserNumber > 0) {
+                // Hanya cek completed jika user benar-benar ada record di UserQueue
+                $isCompleted = $currentUserNumber <= $last_completed;
+            }
         @endphp
 
         <div class="row justify-content-center">
@@ -286,7 +292,7 @@
                 const hasUserQueue = {{ $user_queue ? 'true' : 'false' }};
 
                 if (queueStatusElement && userNumber > 0) {
-                    // Hanya anggap selesai jika user benar-benar punya antrian dan sudah selesai
+                    // **PERBAIKAN: Hanya anggap selesai jika user benar-benar punya record antrian DAN sudah selesai**
                     if (hasUserQueue && userNumber <= data.last_completed) {
                         queueStatusElement.textContent = 'Selesai';
                         queueStatusElement.className = 'badge bg-success badge-lg';
