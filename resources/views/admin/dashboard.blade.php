@@ -135,11 +135,12 @@
                             <div class="status-card status-waiting">
                                 <h5>Menunggu</h5>
                                 <div class="h1" id="waiting-number">
-                                    @if($total_queue > $current_queue)
-                                        {{ $current_queue + 1 }}
-                                    @else
-                                        -
-                                    @endif
+                                    @php
+                                        // Hitung yang menunggu
+                                        $currentlyServing = ($current_queue > 0 && $current_queue <= $total_queue) ? $current_queue : 0;
+                                        $nextWaiting = ($currentlyServing > 0 && $currentlyServing < $total_queue) ? $currentlyServing + 1 : 0;
+                                    @endphp
+                                    {{ $nextWaiting > 0 ? $nextWaiting : '-' }}
                                 </div>
                             </div>
                         </div>
@@ -147,7 +148,7 @@
                             <div class="status-card status-serving">
                                 <h5>Sedang Dilayani</h5>
                                 <div class="h1" id="serving-number">
-                                    {{ $current_queue > 0 ? $current_queue : '-' }}
+                                    {{ $currently_serving > 0 ? $currently_serving : '-' }}
                                 </div>
                             </div>
                         </div>
@@ -155,7 +156,7 @@
                             <div class="status-card status-completed">
                                 <h5>Terakhir Selesai</h5>
                                 <div class="h1" id="completed-number">
-                                    {{ $current_queue > 0 ? $current_queue - 1 : '-' }}
+                                    {{ $last_completed > 0 ? $last_completed : '-' }}
                                 </div>
                             </div>
                         </div>
@@ -173,8 +174,11 @@
                         <div class="panel-body">
                             <h5>Nomor Antrian yang Menunggu:</h5>
                             <div class="d-flex flex-wrap" id="waiting-list">
-                                @if($total_queue > $current_queue)
-                                    @for($i = $current_queue + 1; $i <= $total_queue; $i++)
+                                @php
+                                    $startWaiting = ($current_queue > 0 && $current_queue < $total_queue) ? $current_queue + 1 : ($current_queue == 0 && $total_queue > 0 ? 1 : 0);
+                                @endphp
+                                @if($startWaiting > 0 && $startWaiting <= $total_queue)
+                                    @for($i = $startWaiting; $i <= $total_queue; $i++)
                                         <span class="badge bg-info m-1 p-2">{{ $i }}</span>
                                     @endfor
                                 @else
@@ -192,7 +196,7 @@
                         <div class="panel-body">
                             <p><strong>Tanggal:</strong> <span id="current-date">{{ date('d F Y') }}</span></p>
                             <p><strong>Total Antrian:</strong> <span id="total-number">{{ $total_queue }}</span></p>
-                            <p><strong>Total Selesai:</strong> <span id="total-completed">{{ $current_queue }}</span></p>
+                            <p><strong>Total Selesai:</strong> <span id="total-completed">{{ max(0, $current_queue - 1) }}</span></p>
                         </div>
                     </div>
                 </div>
@@ -203,10 +207,16 @@
         <div id="admin-panel" style="display: none;">
             <div class="queue-status">
                 <p class="mb-0" id="queue-status-text">
-                    @if($current_queue > 0)
-                        Antrian nomor {{ $current_queue }} sedang dilayani
+                    @if($currently_serving > 0)
+                        Antrian nomor {{ $currently_serving }} sedang dilayani
+                    @elseif($total_queue > 0 && $current_queue == 0)
+                        Ada {{ $total_queue }} antrian menunggu untuk dipanggil
+                    @elseif($current_queue < 0)
+                        Nomor {{ abs($current_queue) }} selesai, siap panggil nomor {{ abs($current_queue) + 1 }}
+                    @elseif($last_completed == $total_queue && $total_queue > 0)
+                        Semua antrian sudah selesai dilayani
                     @else
-                        Tidak ada antrian yang sedang dilayani
+                        Tidak ada antrian
                     @endif
                 </p>
             </div>
@@ -223,10 +233,25 @@
                                     <h4 class="panel-title">Sedang Dilayani</h4>
                                 </div>
                                 <div class="panel-body text-center">
-                                    <div class="queue-number" id="current-serving">{{ $current_queue > 0 ? $current_queue : '-' }}</div>
+                                    <div class="queue-number" id="current-serving">
+                                        {{ $currently_serving > 0 ? $currently_serving : '-' }}
+                                    </div>
                                     <form action="{{ route('admin.serve-next') }}" method="POST">
                                         @csrf
-                                        <button type="submit" class="btn btn-success" id="btn-complete" {{ $current_queue >= $total_queue ? 'disabled' : '' }}>Selesai</button>
+                                        <button type="submit" class="btn btn-success" id="btn-complete"
+                                            @if($total_queue == 0 || ($current_queue > $total_queue)) disabled @endif>
+                                            @if($total_queue == 0)
+                                                Tidak Ada Antrian
+                                            @elseif($current_queue == 0)
+                                                Panggil
+                                            @elseif($current_queue > 0 && $current_queue <= $total_queue)
+                                                Selesai
+                                            @elseif($current_queue < 0)
+                                                Panggil
+                                            @else
+                                                Semua Selesai
+                                            @endif
+                                        </button>
                                     </form>
                                 </div>
                             </div>
@@ -238,10 +263,12 @@
                                 </div>
                                 <div class="panel-body">
                                     <p class="text-center" id="next-queue-info">
-                                        @if($total_queue > $current_queue)
+                                        @if($current_queue == 0 && $total_queue > 0)
+                                            Antrian pertama: 1
+                                        @elseif($current_queue > 0 && $current_queue < $total_queue)
                                             Antrian berikutnya: {{ $current_queue + 1 }}
                                         @else
-                                            Tidak ada antrian yang menunggu
+                                            Tidak ada antrian berikutnya
                                         @endif
                                     </p>
                                 </div>
@@ -263,16 +290,15 @@
                                         </tr>
                                     </thead>
                                     <tbody id="completed-queue-list">
-                                        <!-- Queue history will appear here when customers are served -->
-                                        @if($current_queue == 0)
+                                        @if($last_completed == 0)
                                             <tr>
                                                 <td colspan="2" class="text-center">Belum ada antrian yang selesai</td>
                                             </tr>
                                         @else
-                                            @for($i = 1; $i < $current_queue; $i++)
+                                            @for($i = 1; $i <= $last_completed; $i++)
                                                 <tr>
                                                     <td>{{ $i }}</td>
-                                                    <td>{{ \Carbon\Carbon::now()->subMinutes(($current_queue - $i) * 5)->format('H:i:s') }}</td>
+                                                    <td>{{ \Carbon\Carbon::now()->subMinutes(($last_completed - $i) * 5)->format('H:i:s') }}</td>
                                                 </tr>
                                             @endfor
                                         @endif
@@ -300,8 +326,6 @@
             e.preventDefault();
             document.getElementById('operator-panel').style.display = 'block';
             document.getElementById('admin-panel').style.display = 'none';
-
-            // Update active navigation
             document.getElementById('nav-operator').classList.add('active');
             document.getElementById('nav-admin').classList.remove('active');
         });
@@ -310,8 +334,6 @@
             e.preventDefault();
             document.getElementById('admin-panel').style.display = 'block';
             document.getElementById('operator-panel').style.display = 'none';
-
-            // Update active navigation
             document.getElementById('nav-admin').classList.add('active');
             document.getElementById('nav-operator').classList.remove('active');
         });
@@ -324,59 +346,72 @@
             fetch('{{ route("admin.queue-data") }}')
                 .then(response => response.json())
                 .then(data => {
-                    // Update operator panel - nomor antrian spesifik, bukan jumlah
-                    // Nomor yang sedang menunggu
-                    if (data.total_number > data.served_number) {
-                        document.getElementById('waiting-number').textContent = (data.served_number + 1);
-                    } else {
-                        document.getElementById('waiting-number').textContent = '-';
-                    }
-
+                    // Update operator panel
                     // Nomor yang sedang dilayani
                     document.getElementById('serving-number').textContent =
-                        data.served_number > 0 ? data.served_number : '-';
+                        data.currently_serving > 0 ? data.currently_serving : '-';
 
                     // Nomor terakhir yang selesai
                     document.getElementById('completed-number').textContent =
-                        data.served_number > 0 ? (data.served_number - 1) : '-';
+                        data.last_completed > 0 ? data.last_completed : '-';
 
                     // Update informasi total
                     document.getElementById('total-number').textContent = data.total_number;
-                    document.getElementById('total-completed').textContent = data.served_number;
+                    document.getElementById('total-completed').textContent = data.last_completed;
 
                     // Update admin panel
                     document.getElementById('current-serving').textContent =
-                        data.served_number > 0 ? data.served_number : '-';
+                        data.currently_serving > 0 ? data.currently_serving : '-';
 
                     // Update queue status text
-                    if (data.served_number > 0) {
+                    if (data.currently_serving > 0) {
                         document.getElementById('queue-status-text').textContent =
-                            `Antrian nomor ${data.served_number} sedang dilayani`;
+                            `Antrian nomor ${data.currently_serving} sedang dilayani`;
+                    } else if (data.served_number < 0) {
+                        const lastCompleted = Math.abs(data.served_number);
+                        const nextToCall = lastCompleted + 1;
+                        document.getElementById('queue-status-text').textContent =
+                            `Nomor ${lastCompleted} selesai, siap panggil nomor ${nextToCall}`;
+                    } else if (data.total_number > 0 && data.served_number === 0) {
+                        document.getElementById('queue-status-text').textContent =
+                            `Ada ${data.total_number} antrian menunggu untuk dipanggil`;
+                    } else if (data.last_completed === data.total_number && data.total_number > 0) {
+                        document.getElementById('queue-status-text').textContent =
+                            'Semua antrian sudah selesai dilayani';
                     } else {
-                        document.getElementById('queue-status-text').textContent =
-                            'Tidak ada antrian yang sedang dilayani';
+                        document.getElementById('queue-status-text').textContent = 'Tidak ada antrian';
                     }
 
                     // Update next queue info
-                    if (data.total_number > data.served_number) {
+                    if (data.served_number === 0 && data.total_number > 0) {
+                        document.getElementById('next-queue-info').textContent = 'Antrian pertama: 1';
+                    } else if (data.served_number < 0) {
+                        const nextNumber = Math.abs(data.served_number) + 1;
+                        if (nextNumber <= data.total_number) {
+                            document.getElementById('next-queue-info').textContent = `Siap panggil: ${nextNumber}`;
+                        } else {
+                            document.getElementById('next-queue-info').textContent = 'Tidak ada antrian berikutnya';
+                        }
+                    } else if (data.currently_serving > 0 && data.currently_serving < data.total_number) {
                         document.getElementById('next-queue-info').textContent =
-                            `Antrian berikutnya: ${data.served_number + 1}`;
+                            `Antrian berikutnya: ${data.currently_serving + 1}`;
                     } else {
-                        document.getElementById('next-queue-info').textContent =
-                            'Tidak ada antrian yang menunggu';
+                        document.getElementById('next-queue-info').textContent = 'Tidak ada antrian berikutnya';
                     }
 
-                    // Update button state
-                    document.getElementById('btn-complete').disabled =
-                        data.total_number <= data.served_number;
+                    // Update button
+                    const btnComplete = document.getElementById('btn-complete');
+                    btnComplete.textContent = data.button_text;
+                    btnComplete.disabled = !data.button_enabled;
 
                     // Update waiting list
                     const waitingList = document.getElementById('waiting-list');
-                    if (data.total_number <= data.served_number) {
+                    if (data.waiting_number <= 0) {
                         waitingList.innerHTML = '<p class="text-muted">Tidak ada antrian yang menunggu</p>';
                     } else {
                         let html = '';
-                        for (let i = data.served_number + 1; i <= data.total_number; i++) {
+                        let startWaiting = data.currently_serving > 0 ? data.currently_serving + 1 : 1;
+                        for (let i = startWaiting; i <= data.total_number; i++) {
                             html += `<span class="badge bg-info m-1 p-2">${i}</span>`;
                         }
                         waitingList.innerHTML = html;
@@ -384,13 +419,13 @@
 
                     // Update completed queue list
                     const tbody = document.getElementById('completed-queue-list');
-                    if (data.served_number === 0) {
+                    if (data.last_completed === 0) {
                         tbody.innerHTML = '<tr><td colspan="2" class="text-center">Belum ada antrian yang selesai</td></tr>';
                     } else {
                         let tableContent = '';
-                        for (let i = 1; i < data.served_number; i++) {
+                        for (let i = 1; i <= data.last_completed; i++) {
                             const time = new Date();
-                            time.setMinutes(time.getMinutes() - ((data.served_number - i) * 5));
+                            time.setMinutes(time.getMinutes() - ((data.last_completed - i) * 5));
                             const timeString = time.toTimeString().split(' ')[0];
 
                             tableContent += `<tr>
@@ -398,12 +433,7 @@
                                 <td>${timeString}</td>
                             </tr>`;
                         }
-
-                        if (tableContent === '') {
-                            tbody.innerHTML = '<tr><td colspan="2" class="text-center">Belum ada antrian yang selesai</td></tr>';
-                        } else {
-                            tbody.innerHTML = tableContent;
-                        }
+                        tbody.innerHTML = tableContent;
                     }
                 })
                 .catch(error => console.error('Error fetching queue data:', error));

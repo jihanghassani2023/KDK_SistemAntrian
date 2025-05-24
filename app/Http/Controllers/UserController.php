@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Queue;
+use App\Models\UserQueue;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
@@ -11,21 +12,116 @@ class UserController extends Controller
 {
     public function dashboard()
     {
+        $user = Auth::user();
         $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
+        // Cek apakah user sudah punya antrian hari ini
+        $userQueue = UserQueue::where('user_id', $user->id)
+                              ->where('queue_date', today())
+                              ->first();
+
+        // Menentukan nomor yang sedang dilayani dan terakhir selesai
+        $currentlyServing = 0;
+        $lastCompleted = 0;
+
+        if ($todayQueue) {
+            $served = $todayQueue->served_queue_number;
+            $total = $todayQueue->current_queue_number;
+
+            if ($served > 0 && $served <= $total) {
+                // Sedang melayani nomor positif
+                $currentlyServing = $served;
+                $lastCompleted = max(0, $served - 1); // Nomor sebelumnya yang sudah selesai
+            } else if ($served < 0) {
+                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
+                $currentlyServing = 0;
+                $lastCompleted = abs($served); // Nomor yang baru saja selesai
+            } else if ($served > $total) {
+                // Semua sudah selesai
+                $currentlyServing = 0;
+                $lastCompleted = $total;
+            } else {
+                // served = 0, belum ada yang dipanggil
+                $currentlyServing = 0;
+                $lastCompleted = 0;
+            }
+        }
+
         return view('user.dashboard', [
-            'served_number' => $todayQueue ? $todayQueue->served_queue_number : 0
+            'served_number' => $todayQueue ? $todayQueue->served_queue_number : 0,
+            'total_queue' => $todayQueue ? $todayQueue->current_queue_number : 0,
+            'currently_serving' => $currentlyServing,
+            'last_completed' => $lastCompleted,
+            'user_queue' => $userQueue // Data antrian user
         ]);
     }
 
     public function takeQueuePage()
     {
-        return view('user.dashboard');
+        $user = Auth::user();
+        $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
+
+        // Cek apakah user sudah mengambil antrian hari ini
+        $userQueue = UserQueue::where('user_id', $user->id)
+                              ->where('queue_date', today())
+                              ->first();
+
+        if ($userQueue) {
+            // Jika sudah ada, redirect ke dashboard dengan data antrian
+            return redirect()->route('user.dashboard');
+        }
+
+        // Menentukan nomor yang sedang dilayani dan terakhir selesai
+        $currentlyServing = 0;
+        $lastCompleted = 0;
+
+        if ($todayQueue) {
+            $served = $todayQueue->served_queue_number;
+            $total = $todayQueue->current_queue_number;
+
+            if ($served > 0 && $served <= $total) {
+                // Sedang melayani nomor positif
+                $currentlyServing = $served;
+                $lastCompleted = max(0, $served - 1); // Nomor sebelumnya yang sudah selesai
+            } else if ($served < 0) {
+                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
+                $currentlyServing = 0;
+                $lastCompleted = abs($served); // Nomor yang baru saja selesai
+            } else if ($served > $total) {
+                // Semua sudah selesai
+                $currentlyServing = 0;
+                $lastCompleted = $total;
+            } else {
+                // served = 0, belum ada yang dipanggil
+                $currentlyServing = 0;
+                $lastCompleted = 0;
+            }
+        }
+
+        return view('user.dashboard', [
+            'served_number' => $todayQueue ? $todayQueue->served_queue_number : 0,
+            'total_queue' => $todayQueue ? $todayQueue->current_queue_number : 0,
+            'currently_serving' => $currentlyServing,
+            'last_completed' => $lastCompleted,
+            'user_queue' => null // Belum ada antrian
+        ]);
     }
 
     public function takeQueue(Request $request)
     {
         try {
+            $user = Auth::user();
+
+            // Cek apakah user sudah mengambil antrian hari ini
+            $existingUserQueue = UserQueue::where('user_id', $user->id)
+                                          ->where('queue_date', today())
+                                          ->first();
+
+            if ($existingUserQueue) {
+                return redirect()->route('user.dashboard')
+                    ->with('info', 'Anda sudah mengambil nomor antrian hari ini');
+            }
+
             // Cek apakah ada antrian aktif hari ini
             $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
@@ -44,10 +140,17 @@ class UserController extends Controller
             $todayQueue->current_queue_number = $queueNumber;
             $todayQueue->save();
 
+            // Simpan antrian user ke database
+            UserQueue::create([
+                'queue_id' => $todayQueue->id,
+                'user_id' => $user->id,
+                'queue_number' => $queueNumber,
+                'queue_date' => today()
+            ]);
+
             return redirect()->route('user.dashboard')
-                ->with('success', 'Nomor antrian berhasil diambil')
-                ->with('queue_number', $queueNumber)
-                ->with('queue_date', today()->format('d F Y'));
+                ->with('success', 'Nomor antrian berhasil diambil');
+
         } catch (\Exception $e) {
             Log::error('Error taking queue: ' . $e->getMessage());
             return redirect()->route('user.dashboard')
@@ -60,9 +163,48 @@ class UserController extends Controller
         try {
             $todayQueue = Queue::whereDate('created_at', today())->where('status', 'active')->first();
 
+            if (!$todayQueue) {
+                return response()->json([
+                    'served_number' => 0,
+                    'total_number' => 0,
+                    'currently_serving' => 0,
+                    'last_completed' => 0
+                ]);
+            }
+
+            $served = $todayQueue->served_queue_number;
+            $total = $todayQueue->current_queue_number;
+
+            $served = $todayQueue->served_queue_number;
+            $total = $todayQueue->current_queue_number;
+
+            // Menentukan nomor yang sedang dilayani dan terakhir selesai
+            $currentlyServing = 0;
+            $lastCompleted = 0;
+
+            if ($served > 0 && $served <= $total) {
+                // Sedang melayani nomor positif
+                $currentlyServing = $served;
+                $lastCompleted = max(0, $served - 1); // Nomor sebelumnya yang sudah selesai
+            } else if ($served < 0) {
+                // Nilai negatif = nomor abs($served) sudah selesai, belum panggil berikutnya
+                $currentlyServing = 0;
+                $lastCompleted = abs($served); // Nomor yang baru saja selesai
+            } else if ($served > $total) {
+                // Semua sudah selesai
+                $currentlyServing = 0;
+                $lastCompleted = $total;
+            } else {
+                // served = 0, belum ada yang dipanggil
+                $currentlyServing = 0;
+                $lastCompleted = 0;
+            }
+
             return response()->json([
-                'served_number' => $todayQueue ? $todayQueue->served_queue_number : 0,
-                'total_number' => $todayQueue ? $todayQueue->current_queue_number : 0
+                'served_number' => $served,
+                'total_number' => $total,
+                'currently_serving' => $currentlyServing,
+                'last_completed' => $lastCompleted
             ]);
         } catch (\Exception $e) {
             Log::error('Error getting served number: ' . $e->getMessage());

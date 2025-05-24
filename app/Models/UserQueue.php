@@ -13,6 +13,10 @@ class UserQueue extends Model
         'queue_date'
     ];
 
+    protected $casts = [
+        'queue_date' => 'date'
+    ];
+
     public function queue()
     {
         return $this->belongsTo(Queue::class);
